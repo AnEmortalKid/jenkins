@@ -143,7 +143,7 @@ import java.io.NotSerializableException;
 
 import java.util.Collections;
 import org.apache.tools.ant.BuildException;
-        
+
 /**
  * {@link File} like object with remoting support.
  *
@@ -214,6 +214,16 @@ public final class FilePath implements SerializableOnlyOverRemoting {
      * Maximum http redirects we will follow. This defaults to the same number as Firefox/Chrome tolerates.
      */
     private static final int MAX_REDIRECTS = 20;
+
+    /**
+     * Maximum amount of milliseconds to wait for a connection to establish, Defaults to Zero which will cause infinite waiting per {@link URLConnection#getConnectTimeout()}
+     */
+    private static final int CONNECT_TIMEOUT = 0;
+
+    /**
+     * Maximum amount of milliseconds to wait for a connection to finish reading data, Defaults to Zero which will cause infinite waiting per {@link URLConnection#getReadTimeout()}
+     */
+    private static final int READ_TIMEOUT = 0;
 
     /**
      * When this {@link FilePath} represents the remote path,
@@ -845,10 +855,44 @@ public final class FilePath implements SerializableOnlyOverRemoting {
      * @since 1.299
      */
     public boolean installIfNecessaryFrom(@Nonnull URL archive, @CheckForNull TaskListener listener, @Nonnull String message) throws IOException, InterruptedException {
-        return installIfNecessaryFrom(archive, listener, message, MAX_REDIRECTS);
+        return installIfNecessaryFrom(archive, listener, message, MAX_REDIRECTS, CONNECT_TIMEOUT, READ_TIMEOUT);
     }
 
     private boolean installIfNecessaryFrom(@Nonnull URL archive, @CheckForNull TaskListener listener, @Nonnull String message, int maxRedirects) throws InterruptedException, IOException {
+        return installIfNecessaryFrom(archive, listener, message, maxRedirects, CONNECT_TIMEOUT, READ_TIMEOUT);
+    }
+
+    /**
+     * Given a tgz/zip file, extracts it to the given target directory, if necessary.
+     *
+     * <p>
+     * This method is a convenience method designed for installing a binary package to a location
+     * that supports upgrade and downgrade. Specifically,
+     *
+     * <ul>
+     * <li>If the target directory doesn't exist {@linkplain #mkdirs() it will be created}.
+     * <li>The timestamp of the archive is left in the installation directory upon extraction.
+     * <li>If the timestamp left in the directory does not match the timestamp of the current archive file,
+     *     the directory contents will be discarded and the archive file will be re-extracted.
+     * <li>If the connection is refused but the target directory already exists, it is left alone.
+     * </ul>
+     *
+     * @param archive
+     *      The resource that represents the tgz/zip file. This URL must support the {@code Last-Modified} header.
+     *      (For example, you could use {@link ClassLoader#getResource}.)
+     * @param listener
+     *      If non-null, a message will be printed to this listener once this method decides to
+     *      extract an archive, or if there is any issue.
+     * @param message a message to be printed in case extraction will proceed.
+     * @param maxRedirects the maximum number of redirects to follow
+     * @param  connectTimeout the maximum number of milliseconds to wait for the connection to establish
+     * @param readTimeout the maximum number of milliseconds to wait when reading from the archive
+     * @return
+     *      true if the archive was extracted. false if the extraction was skipped because the target directory
+     *      was considered up to date.
+     */
+    public boolean installIfNecessaryFrom(@Nonnull URL archive, @CheckForNull TaskListener listener, @Nonnull String message, int maxRedirects, int connectTimeout, int readTimeout) throws InterruptedException, IOException
+    {
         try {
             FilePath timestamp = this.child(".timestamp");
             long lastModified = timestamp.lastModified();
@@ -857,6 +901,16 @@ public final class FilePath implements SerializableOnlyOverRemoting {
                 con = ProxyConfiguration.open(archive);
                 if (lastModified != 0) {
                     con.setIfModifiedSince(lastModified);
+                }
+
+                // if the proxy set one then don't overwrite it
+                if(connectTimeout > 0 && con.getConnectTimeout() < 0)
+                {
+                    con.setConnectTimeout(connectTimeout);
+                }
+                if(readTimeout > 0)
+                {
+                    con.setReadTimeout(readTimeout);
                 }
                 con.connect();
             } catch (IOException x) {
@@ -940,6 +994,7 @@ public final class FilePath implements SerializableOnlyOverRemoting {
             throw new IOException("Failed to install "+archive+" to "+remote,e);
         }
     }
+
 
     // this reads from arbitrary URL
     private final class Unpack extends MasterToSlaveFileCallable<Void> {
