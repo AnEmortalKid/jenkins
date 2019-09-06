@@ -30,4 +30,12 @@ THE SOFTWARE.
     <f:entry title="${%Subdirectory of extracted archive}" field="subdir">
         <f:textbox/>
     </f:entry>
+    <f:entry title="${%Connection timeout}" field="connectTimeout">
+        <f:number clazz="required number" min="0" default="0"
+               checkMessage="${%Connect Timeout is mandatory and must be a number}"/>
+    </f:entry>
+    <f:entry title="${%Read timeout}" field="readTimeout">
+        <f:number clazz="required number" min="0" default="0"
+               checkMessage="${%Read Timeout is mandatory and must be a number}"/>
+    </f:entry>
 </j:jelly>

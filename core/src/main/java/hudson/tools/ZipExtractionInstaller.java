@@ -55,6 +55,11 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public class ZipExtractionInstaller extends ToolInstaller {
 
     /**
+     * Maximum http redirects we will follow. This defaults to the same number as Firefox/Chrome tolerates.
+     */
+    private static final int MAX_REDIRECTS = 20;
+
+    /**
      * URL of a ZIP file which should be downloaded in case the tool is missing.
      */
     private final String url;
@@ -62,12 +67,17 @@ public class ZipExtractionInstaller extends ToolInstaller {
      * Optional subdir to extract.
      */
     private final String subdir;
+    private final int readTimeout;
+    private final int connectTimeout;
 
     @DataBoundConstructor
-    public ZipExtractionInstaller(String label, String url, String subdir) {
+    public ZipExtractionInstaller(String label, String url, String subdir, int connectTimeout, int readTimeout)
+    {
         super(label);
         this.url = url;
         this.subdir = Util.fixEmptyAndTrim(subdir);
+        this.connectTimeout = connectTimeout;
+        this.readTimeout = readTimeout;
     }
 
     public String getUrl() {
@@ -78,9 +88,14 @@ public class ZipExtractionInstaller extends ToolInstaller {
         return subdir;
     }
 
+    public int getConnectTimeout () { return connectTimeout; }
+
+    public int getReadTimeout () { return readTimeout; }
+
     public FilePath performInstallation(ToolInstallation tool, Node node, TaskListener log) throws IOException, InterruptedException {
         FilePath dir = preferredLocation(tool, node);
-        if (dir.installIfNecessaryFrom(new URL(url), log, "Unpacking " + url + " to " + dir + " on " + node.getDisplayName())) {
+        log.getLogger().print("Installing with connectTimeout: " + connectTimeout + " and readTimeout: " + readTimeout);
+        if (dir.installIfNecessaryFrom(new URL(url), log, "Unpacking " + url + " to " + dir + " on " + node.getDisplayName(), MAX_REDIRECTS, connectTimeout, readTimeout)) {
             dir.act(new ChmodRecAPlusX());
         }
         if (subdir == null) {

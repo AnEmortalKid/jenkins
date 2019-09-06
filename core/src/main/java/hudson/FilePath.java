@@ -855,7 +855,7 @@ public final class FilePath implements SerializableOnlyOverRemoting {
      * @since 1.299
      */
     public boolean installIfNecessaryFrom(@Nonnull URL archive, @CheckForNull TaskListener listener, @Nonnull String message) throws IOException, InterruptedException {
-        return installIfNecessaryFrom(archive, listener, message, MAX_REDIRECTS, CONNECT_TIMEOUT, READ_TIMEOUT);
+        return installIfNecessaryFrom(archive, listener, message, MAX_REDIRECTS);
     }
 
     private boolean installIfNecessaryFrom(@Nonnull URL archive, @CheckForNull TaskListener listener, @Nonnull String message, int maxRedirects) throws InterruptedException, IOException {
@@ -912,6 +912,7 @@ public final class FilePath implements SerializableOnlyOverRemoting {
                 {
                     con.setReadTimeout(readTimeout);
                 }
+                listener.getLogger().println("Connection connectTimeout:" + con.getConnectTimeout() + " , readTimeout:" + con.getReadTimeout());
                 con.connect();
             } catch (IOException x) {
                 if (this.exists()) {
